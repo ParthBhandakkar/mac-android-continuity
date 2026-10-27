@@ -588,7 +588,7 @@ const server = http.createServer(async (req, res) => {
 
     const mirrorArgs = [
       ...(TARGET ? [`--serial=${TARGET}`] : []),
-      '--window-title=Android Mirroring',
+      '--window-title=Aether Mirroring',
       '--window-width=375',
       '--max-fps=60',
       '--video-bit-rate=12M',
@@ -596,7 +596,7 @@ const server = http.createServer(async (req, res) => {
       '--shortcut-mod=lsuper,lalt'
     ];
 
-    console.log(`[Mac Bridge] Spawning mirror: ${SCRCPY_BIN} ${mirrorArgs.join(' ')}`);
+    console.log(`[Aether Bridge] Spawning mirror: ${SCRCPY_BIN} ${mirrorArgs.join(' ')}`);
 
     let earlyError = '';
     let procExited = false;
@@ -645,5 +645,5 @@ async function parseJsonBody(req) {
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`[Mac Continuity Bridge] Running on port ${PORT}. Target: ${TARGET || 'auto-discovering'}.`);
+  console.log(`[Aether Bridge] Running on port ${PORT}. Target: ${TARGET || 'auto-discovering'}.`);
 });

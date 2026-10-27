@@ -4,11 +4,11 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-# 1. Build Continuity Hub App
-HUB_APP="Continuity Hub"
+# 1. Build Aether App
+HUB_APP="Aether"
 HUB_BUNDLE="$DIR/$HUB_APP.app"
 
-echo "[1/4] Building Continuity Hub.app..."
+echo "[1/4] Building Aether.app..."
 rm -rf "$HUB_BUNDLE"
 mkdir -p "$HUB_BUNDLE/Contents/MacOS"
 mkdir -p "$HUB_BUNDLE/Contents/Resources"
@@ -24,17 +24,17 @@ cat << 'EOF' > "$HUB_BUNDLE/Contents/Info.plist"
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Continuity Hub</string>
+	<string>Aether</string>
 	<key>CFBundleExecutable</key>
-	<string>Continuity Hub</string>
+	<string>Aether</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.workzera.ContinuityHub</string>
+	<string>com.workzera.aether</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Continuity Hub</string>
+	<string>Aether</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -49,8 +49,8 @@ cat << 'EOF' > "$HUB_BUNDLE/Contents/Info.plist"
 </plist>
 EOF
 
-if [ -f "/System/Applications/iPhone Mirroring.app/Contents/Resources/AppIcon.icns" ]; then
-  cp "/System/Applications/iPhone Mirroring.app/Contents/Resources/AppIcon.icns" "$HUB_BUNDLE/Contents/Resources/AppIcon.icns"
+if [ -f "$DIR/AppIcon.icns" ]; then
+  cp "$DIR/AppIcon.icns" "$HUB_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
 echo "SUCCESS: Native macOS App '$HUB_BUNDLE' built successfully!"

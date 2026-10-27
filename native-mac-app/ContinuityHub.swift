@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                           backing: .buffered,
                           defer: false)
 
-        window.title = "Continuity Hub"
+        window.title = "Aether"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true

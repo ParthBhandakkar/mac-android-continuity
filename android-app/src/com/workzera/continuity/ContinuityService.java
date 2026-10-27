@@ -106,8 +106,8 @@ public class ContinuityService extends Service {
             builder = new Notification.Builder(this);
         }
 
-        builder.setContentTitle("Mac Continuity Active")
-                .setContentText("Connected to MacBook Pro • Port " + PORT)
+        builder.setContentTitle("Aether Continuity Active")
+                .setContentText("Linked to Mac • Port " + PORT)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentIntent(openPendingIntent)
                 .setOngoing(true);

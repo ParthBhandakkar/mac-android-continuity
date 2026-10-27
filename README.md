@@ -1,11 +1,18 @@
-# Mac-Android Continuity Suite 🍏 ➔ 🤖
+<div align="center">
+  <img src="assets/logo.png" alt="Aether Logo" width="160" style="border-radius: 36px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" />
+  <h1 align="center" style="margin-top: 12px; margin-bottom: 0;">Aether</h1>
+  <p align="center"><b>The invisible bridge between your Mac and Android.</b></p>
+  <p align="center">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Android-black.svg" alt="Platform" />
+    <img src="https://img.shields.io/badge/Mirroring-60%20FPS%20Metal-brightgreen.svg" alt="60 FPS Metal" />
+    <img src="https://img.shields.io/badge/Privacy-100%25%20Local%20P2P-success.svg" alt="100% Local P2P" />
+  </p>
+</div>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Android-black.svg)]()
-[![FPS](https://img.shields.io/badge/Mirroring-60%20FPS%20Metal-brightgreen.svg)]()
-[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local%20P2P-success.svg)]()
+---
 
-A peer-to-peer continuity suite bringing Apple Sequoia-grade **iPhone Mirroring** and **Continuity** features to Android and macOS.
+**Aether** is a peer-to-peer continuity suite bringing Apple Sequoia-grade **iPhone Mirroring** and **Continuity** features to Android and macOS.
 
 Enjoy **60 FPS Metal-accelerated screen mirroring**, **invisible bidirectional Universal Clipboard**, **AirDrop-style file drops**, and **live cross-device hardware telemetry**—with zero cloud dependencies and zero subscriptions.
 
@@ -16,8 +23,8 @@ Enjoy **60 FPS Metal-accelerated screen mirroring**, **invisible bidirectional U
 - **⚡ 60 FPS Metal-Accelerated Screen Mirroring**: Ultra-low latency video streaming powered by Apple VideoToolbox hardware decoding and Metal rendering (`scrcpy` backend). Seamless keyboard navigation, scroll gestures, and navigation bar controls (Back, Home, App Switcher).
 - **📋 Universal Bidirectional Clipboard**: Copy on macOS (`Cmd+C`) and paste immediately on Android. Copy on Android and paste on Mac (`Cmd+V`). Features cryptographic content hashing and timestamp arbitration to prevent feedback loops.
 - **📲 AirDrop-Style File Transfers**:
-  - **Mac ➔ Phone**: Drop any photo, document, or APK into the Continuity Hub window. Files are saved directly to `/sdcard/Download/` and `/sdcard/Pictures/`, automatically indexed into the Android Gallery via `MediaScannerConnection`, and trigger a heads-up notification.
-  - **Phone ➔ Mac**: Tap "Send File to Mac" from the Android Companion app. Files land directly in `~/Downloads` on your Mac with native macOS banners and chime sounds.
+  - **Mac ➔ Phone**: Drop any photo, document, or APK into the Aether window. Files are saved directly to `/sdcard/Download/` and `/sdcard/Pictures/`, automatically indexed into the Android Gallery via `MediaScannerConnection`, and trigger a heads-up notification.
+  - **Phone ➔ Mac**: Tap "Send File to Mac" from the Aether Android app. Files land directly in `~/Downloads` on your Mac with native macOS banners and chime sounds.
 - **📊 Real-Time Cross-Device Telemetry**: View live battery percentage, charging state, OS versions, storage usage, and local network IPs across both devices.
 - **🔒 100% Local & Private**: All communication flows strictly over your local Wi-Fi network and ADB TCP/IP sockets. No servers, no accounts, and no third-party data tracking.
 
@@ -30,7 +37,7 @@ Enjoy **60 FPS Metal-accelerated screen mirroring**, **invisible bidirectional U
                  |                   MacBook                     |
                  |                                               |
                  |   +-------------------+  +----------------+   |
-                 |   | Continuity Hub.app|  | 60 FPS scrcpy  |   |
+                 |   |    Aether.app     |  | 60 FPS scrcpy  |   |
                  |   |  (WebKit/AppKit)  |  | (VideoToolbox) |   |
                  |   +---------+---------+  +--------+-------+   |
                  |             |                     |           |
@@ -47,8 +54,8 @@ Enjoy **60 FPS Metal-accelerated screen mirroring**, **invisible bidirectional U
                  |   +-------------------+-------------------+   |
                  |                       |                       |
                  |         +-------------v---------------+       |
-                 |         |    Continuity Companion     |       |
-                 |         |    (Native Android App)     |       |
+                 |         |       Aether Android        |       |
+                 |         |    (Native Companion App)   |       |
                  |         +-----------------------------+       |
                  |                    Android                    |
                  +-----------------------------------------------+
@@ -92,7 +99,7 @@ Simply plug in your phone via USB and tap **Always Allow** on the authorization 
 
 ---
 
-### Step 2: Install & Start Android Companion App
+### Step 2: Install & Start Aether on Android
 
 Build and install the lightweight native Android app:
 
@@ -102,29 +109,29 @@ cd android-app
 adb install -r ContinuityCompanion.apk
 ```
 
-Open **Continuity Companion** on your phone. It runs a lightweight background foreground service (`:8899`) with a persistent status notification.
+Open **Aether** on your phone. It runs a lightweight background foreground service (`:8899`) with a persistent status notification.
 
 > **Note**: Tap the bridge IP row in the app if you want to manually configure your Mac's IP, or let it auto-discover the Mac IP on the first ping.
 
 ---
 
-### Step 3: Launch Mac Bridge & Continuity Hub
+### Step 3: Launch Aether on Mac
 
-1. **Start the Mac Bridge**:
+1. **Start the Aether Bridge**:
    ```bash
    node mac_bridge.mjs
    ```
-   *The bridge will automatically detect your connected Android device, resolve local network interfaces, and initialize the clipboard sync engine.*
+   *The bridge automatically detects your connected Android device, scans local network interfaces, and initializes the clipboard sync engine.*
 
 2. **Open the Native Mac App**:
    ```bash
    ./native-mac-app/build_mac_app.sh
-   open "native-mac-app/Continuity Hub.app"
+   open "native-mac-app/Aether.app"
    ```
 
 3. **Enjoy seamless continuity**:
-   - Tap **Launch Mirror Window** for instant 60 FPS screen control.
-   - Drag & drop files straight onto the Hub window to push them to your phone.
+   - Tap **Launch Mirror Window** for instant 60 FPS screen control (Left-click to tap, Right-click for Back, Middle-click for Home).
+   - Drag & drop files straight onto the Aether window to push them to your phone.
    - Copy text on either device to see it appear instantly on the other.
 
 ---
@@ -153,11 +160,15 @@ TARGET="192.168.1.50:5555" PORT=8898 node mac_bridge.mjs
 
 ```
 mac-android-continuity/
-├── mac_bridge.mjs               # Core Mac HTTP/WebSocket bridge & clipboard daemon
+├── assets/
+│   ├── logo.png                 # Official Aether high-res icon
+│   └── AppIcon.icns             # Multi-resolution macOS icon bundle
+├── mac_bridge.mjs               # Core Mac HTTP bridge & clipboard daemon
 ├── run_mirroring.sh             # 60 FPS VideoToolbox/Metal mirror launcher script
 ├── native-mac-app/
 │   ├── ContinuityHub.swift      # Native Swift AppKit wrapper
 │   ├── hub_ui.html              # Apple-styled dark UI dashboard
+│   ├── AppIcon.icns             # Embedded app icon bundle
 │   └── build_mac_app.sh         # Swift compiler build script
 ├── android-app/
 │   ├── AndroidManifest.xml      # Android permissions & foreground service declarations

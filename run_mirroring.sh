@@ -53,7 +53,7 @@ fi
 # Launch 60 FPS hardware-accelerated screen mirroring
 exec "$SCRCPY" \
   "${SERIAL_OPT[@]}" \
-  --window-title="Android Mirroring" \
+  --window-title="Aether Mirroring" \
   --window-width=375 \
   --max-fps=60 \
   --video-bit-rate=12M \
