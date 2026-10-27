@@ -58,6 +58,5 @@ exec "$SCRCPY" \
   --max-fps=60 \
   --video-bit-rate=12M \
   --stay-awake \
-  --no-clipboard-autosync \
   --shortcut-mod=lsuper,lalt \
   "$@"

@@ -14,6 +14,7 @@
  */
 
 import http from 'node:http';
+import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -78,6 +79,54 @@ function getPhoneCompanionUrl() {
 
 const DOWNLOADS_DIR = path.join(os.homedir(), 'Downloads');
 
+// Rapid TCP port check helper
+function checkPortOpen(ip, port, timeoutMs = 250) {
+  return new Promise((resolve) => {
+    const sock = net.connect({ host: ip, port, timeout: timeoutMs }, () => {
+      sock.destroy();
+      resolve(true);
+    });
+    sock.on('error', () => resolve(false));
+    sock.on('timeout', () => {
+      sock.destroy();
+      resolve(false);
+    });
+  });
+}
+
+// Discover phone IP across mDNS and local subnet
+async function discoverPhoneIp() {
+  // 1. Check mdns services from adb
+  try {
+    const { stdout } = await execFileAsync(ADB_BIN, ['mdns', 'services']).catch(() => ({ stdout: '' }));
+    const match = stdout.match(/(\d+\.\d+\.\d+\.\d+):(\d+)/);
+    if (match) {
+      const ip = match[1];
+      if (await checkPortOpen(ip, 5555, 300)) return ip;
+    }
+  } catch {}
+
+  // 2. Scan ARP table for responsive phone on port 8899 or 5555
+  try {
+    const { stdout } = await execFileAsync('/usr/sbin/arp', ['-an']).catch(() => ({ stdout: '' }));
+    const ips = [];
+    const re = /\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-f:]+)/g;
+    let m;
+    while ((m = re.exec(stdout)) !== null) {
+      if (m[2] !== '(incomplete)' && m[1] !== '255.255.255.255' && !m[1].endsWith('.255') && !m[1].endsWith('.1')) {
+        ips.push(m[1]);
+      }
+    }
+    for (const ip of ips) {
+      if (await checkPortOpen(ip, 8899, 250) || await checkPortOpen(ip, 5555, 250)) {
+        return ip;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
 // Helper to keep ADB connected persistently
 let isReconnectingAdb = false;
 async function ensureAdbConnected() {
@@ -85,21 +134,31 @@ async function ensureAdbConnected() {
   try {
     const { stdout } = await execFileAsync(ADB_BIN, ['devices']).catch(() => ({ stdout: '' }));
     
-    // Auto-detect phone IP or serial if connected
-    if (!process.env.TARGET && !process.env.PHONE_IP) {
-      const match = stdout.match(/^([^\s]+)\s+device/m);
-      if (match && match[1] !== TARGET) {
+    // Auto-detect phone IP or serial if already listed as device
+    const match = stdout.match(/^([^\s]+)\s+device/m);
+    if (match) {
+      if (match[1] !== TARGET) {
         TARGET = match[1];
-        console.log(`[Mac Bridge] Auto-detected connected Android device: ${TARGET}`);
+        console.log(`[Mac Bridge] Auto-detected active Android device: ${TARGET}`);
+      }
+      return;
+    }
+
+    // No active device attached: run discovery
+    isReconnectingAdb = true;
+    if (!TARGET || !stdout.includes(TARGET)) {
+      const foundIp = await discoverPhoneIp();
+      if (foundIp) {
+        TARGET = `${foundIp}:5555`;
+        console.log(`[Mac Bridge] Discovered Android phone on Wi-Fi at ${TARGET}`);
       }
     }
 
     if (TARGET && (!stdout.includes(TARGET) || stdout.includes(`${TARGET}\toffline`))) {
-      isReconnectingAdb = true;
       console.log(`[Mac Bridge] Connecting to ${TARGET}...`);
-      await execFileAsync(ADB_BIN, ['connect', TARGET], { timeout: 4000 }).catch(() => {});
-      isReconnectingAdb = false;
+      await execFileAsync(ADB_BIN, ['connect', TARGET], { timeout: 3500 }).catch(() => {});
     }
+    isReconnectingAdb = false;
   } catch {
     isReconnectingAdb = false;
   }
@@ -133,6 +192,7 @@ let lastSyncedText = '';
 let lastSyncSource = '';
 let lastSyncTime = 0;
 let scrcpyDaemon = null;
+let activeMirrorProc = null;
 
 async function getMacClipboard() {
   try {
@@ -247,6 +307,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Auto-discover phone endpoint from incoming mobile traffic
+  const clientIp = req.socket.remoteAddress?.replace(/^.*:/, '');
+  if (clientIp && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
+    if (!TARGET || !TARGET.includes(clientIp)) {
+      TARGET = `${clientIp}:5555`;
+      console.log(`[Mac Bridge] Discovered phone endpoint from incoming HTTP traffic: ${TARGET}`);
+      ensureAdbConnected();
+    }
+  }
+
   // A. Mac Device Status (Queried by phone or local app)
   if (pathname === '/api/status' && req.method === 'GET') {
     let battPercent = 58;
@@ -319,7 +389,7 @@ const server = http.createServer(async (req, res) => {
 
     fileStream.on('finish', () => {
       // Trigger native macOS notification
-      execFile('osascript', ['-e', `display notification "Saved ${safeName} to ~/Downloads" with title "File Received from Phone" sound name "Glass"`]);
+      execFile('osascript', ['-e', `display notification "Saved ${safeName} to ~/Downloads" with title "File Received from Phone" sound name "Glass"`], () => {});
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, savedPath: targetPath, filename: safeName }));
@@ -416,7 +486,7 @@ const server = http.createServer(async (req, res) => {
       const dest = path.join(DOWNLOADS_DIR, safeName);
       const resAdb = await runAdb(['pull', `/sdcard/Download/${safeName}`, dest]);
       if (resAdb.success) {
-        execFile('osascript', ['-e', `display notification "Saved ${safeName} to ~/Downloads" with title "File Pulled from OnePlus" sound name "Glass"`]);
+        execFile('osascript', ['-e', `display notification "Saved ${safeName} to ~/Downloads" with title "File Saved to Mac" sound name "Glass"`], () => {});
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, localPath: dest }));
         return;
@@ -491,7 +561,31 @@ const server = http.createServer(async (req, res) => {
 
   // I. Start 60 FPS Mirror Window
   if (pathname === '/api/mirror/start' && req.method === 'POST') {
-    if (!TARGET) await ensureAdbConnected();
+    await ensureAdbConnected();
+    if (!TARGET) {
+      const foundIp = await discoverPhoneIp();
+      if (foundIp) {
+        TARGET = `${foundIp}:5555`;
+        await execFileAsync(ADB_BIN, ['connect', TARGET], { timeout: 3500 }).catch(() => {});
+      }
+    }
+
+    const { stdout: devOut } = await execFileAsync(ADB_BIN, ['devices']).catch(() => ({ stdout: '' }));
+    if (!devOut.includes('device') || devOut.includes('offline')) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        success: false, 
+        error: 'No active Android device detected. Ensure Wireless Debugging is on or plug in via USB.' 
+      }));
+      return;
+    }
+
+    // Kill any existing mirror process before relaunching to avoid conflicts
+    if (activeMirrorProc && !activeMirrorProc.killed) {
+      try { activeMirrorProc.kill(); } catch {}
+      await new Promise(r => setTimeout(r, 250));
+    }
+
     const mirrorArgs = [
       ...(TARGET ? [`--serial=${TARGET}`] : []),
       '--window-title=Android Mirroring',
@@ -499,11 +593,37 @@ const server = http.createServer(async (req, res) => {
       '--max-fps=60',
       '--video-bit-rate=12M',
       '--stay-awake',
-      '--no-clipboard-autosync',
       '--shortcut-mod=lsuper,lalt'
     ];
-    const mirrorProc = spawn(SCRCPY_BIN, mirrorArgs, { detached: true, stdio: 'ignore' });
-    mirrorProc.unref();
+
+    console.log(`[Mac Bridge] Spawning mirror: ${SCRCPY_BIN} ${mirrorArgs.join(' ')}`);
+
+    let earlyError = '';
+    let procExited = false;
+
+    activeMirrorProc = spawn(SCRCPY_BIN, mirrorArgs);
+    activeMirrorProc.stderr?.on('data', (d) => {
+      earlyError += d.toString();
+    });
+
+    activeMirrorProc.on('exit', (code) => {
+      procExited = true;
+      if (code !== 0 && code !== null) {
+        console.error(`[Mac Bridge] scrcpy exited with code ${code}: ${earlyError}`);
+      }
+    });
+
+    // Wait 700ms to ensure scrcpy didn't crash on startup
+    await new Promise(r => setTimeout(r, 700));
+
+    if (procExited && earlyError) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: earlyError.trim() }));
+      return;
+    }
+
+    // Bring mirror window to front on macOS
+    execFile('osascript', ['-e', 'tell application "System Events" to set frontmost of first process whose name is "scrcpy" to true'], () => {});
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, message: 'Mirror launched' }));
@@ -525,5 +645,5 @@ async function parseJsonBody(req) {
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`[Mac Continuity Bridge] Running on port ${PORT}. Ready to sync with phone ${PHONE_IP}.`);
+  console.log(`[Mac Continuity Bridge] Running on port ${PORT}. Target: ${TARGET || 'auto-discovering'}.`);
 });
