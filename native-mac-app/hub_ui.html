@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Continuity Hub</title>
+  <style>
+    :root {
+      --bg-chassis: #1c1c1e;
+      --bg-card: #2c2c2e;
+      --bg-card-hover: #3a3a3c;
+      --accent: #007aff;
+      --accent-green: #34c759;
+      --text-primary: #ffffff;
+      --text-secondary: #8e8e93;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-chassis);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      padding: 24px;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: hidden;
+    }
+    
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #007aff, #5856d6);
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+    }
+
+    /* Device Telemetry Grid */
+    .devices-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .device-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .device-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .status-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-green);
+      background: rgba(52, 199, 89, 0.15);
+      padding: 3px 8px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .stat-row span:last-child {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Action Banner */
+    .mirror-banner {
+      background: linear-gradient(135deg, rgba(0, 122, 255, 0.15), rgba(88, 86, 214, 0.15));
+      border: 1px solid rgba(0, 122, 255, 0.3);
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #0062cc; transform: translateY(-1px); }
+
+    /* Section Headers */
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Drop Zone */
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+      margin-bottom: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(0, 122, 255, 0.08);
+    }
+
+    /* Recent Files List */
+    .files-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .file-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.15s;
+    }
+    .file-item:hover { background: var(--bg-card-hover); }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .file-icon { font-size: 1.3rem; }
+    .file-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 400px;
+    }
+    .file-size {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .btn-pull {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-pull:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <span>Continuity Hub</span>
+    </div>
+    <div id="clip-status" style="font-size:0.82rem; color:var(--text-secondary);">
+      📋 Universal Clipboard: <span style="color:var(--accent-green); font-weight:600;">Active</span>
+    </div>
+  </header>
+
+  <!-- Side-by-Side Device Telemetry -->
+  <div class="devices-grid">
+    <!-- Mac Card -->
+    <div class="device-card">
+      <div class="card-top">
+        <div class="device-name" id="mac-model">Mac</div>
+        <div class="status-badge"><div class="dot"></div> Connected</div>
+      </div>
+      <div class="stat-row"><span>Platform:</span><span id="mac-os">macOS</span></div>
+      <div class="stat-row"><span>Battery:</span><span id="mac-battery">--%</span></div>
+      <div class="stat-row"><span>Local IP:</span><span id="mac-ip">Detecting...</span></div>
+    </div>
+
+    <!-- Phone Card -->
+    <div class="device-card">
+      <div class="card-top">
+        <div class="device-name" id="phone-model">Android Phone</div>
+        <div class="status-badge"><div class="dot"></div> Wi-Fi Linked</div>
+      </div>
+      <div class="stat-row"><span>Android OS:</span><span id="phone-os">Android</span></div>
+      <div class="stat-row"><span>Battery & Charging:</span><span id="phone-battery">--%</span></div>
+      <div class="stat-row"><span>Storage:</span><span id="phone-storage">--</span></div>
+    </div>
+  </div>
+
+  <!-- Launch 60 FPS Mirror Banner -->
+  <div class="mirror-banner">
+    <div>
+      <div style="font-weight:700; font-size:1rem; margin-bottom:4px;">Native 60 FPS Screen Mirroring</div>
+      <div style="font-size:0.84rem; color:var(--text-secondary);">Apple Metal & VideoToolbox accelerated low-latency mirror.</div>
+    </div>
+    <button class="btn" onclick="startMirror()">Launch Mirror Window</button>
+  </div>
+
+  <!-- Drop Zone (Mac -> Phone) -->
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <input type="file" id="file-input" style="display:none;" onchange="handleFileSelected(event)">
+    <div style="font-size:1.6rem; margin-bottom:6px;">📲</div>
+    <div style="font-weight:700; font-size:1rem; margin-bottom:4px;">Drop Files to Push to Phone</div>
+    <div style="font-size:0.82rem; color:var(--text-secondary);">Transfers directly to /sdcard/Download/ on your Android phone.</div>
+  </div>
+  <div id="drop-alert" style="margin-top:-16px; margin-bottom:16px; font-size:0.85rem; color:var(--accent-green); display:none;"></div>
+
+  <!-- Recent Files on Phone (Phone -> Mac) -->
+  <div class="section-title">
+    <span>Recent Files on Android Phone</span>
+    <span style="font-size:0.8rem; font-weight:500; color:var(--text-secondary);" id="phone-file-count">Loading...</span>
+  </div>
+  <div class="files-list" id="phone-files-list">
+    <!-- Populated dynamically -->
+  </div>
+
+  <script>
+    const BRIDGE_URL = 'http://127.0.0.1:8898';
+
+    async function updateStatus() {
+      try {
+        const [macRes, phoneRes] = await Promise.all([
+          fetch(BRIDGE_URL + '/api/status').then(r => r.json()),
+          fetch(BRIDGE_URL + '/api/phone/status').then(r => r.json())
+        ]);
+
+        document.getElementById('mac-model').innerText = macRes.model || 'MacBook Pro';
+        document.getElementById('mac-os').innerText = macRes.os || 'macOS';
+        document.getElementById('mac-battery').innerText = macRes.battery + '%';
+        document.getElementById('mac-ip').innerText = macRes.ip;
+
+        document.getElementById('phone-model').innerText = phoneRes.model || 'OnePlus CPH2413';
+        document.getElementById('phone-os').innerText = phoneRes.androidVersion || 'Android 15';
+        document.getElementById('phone-battery').innerText = phoneRes.battery + '%';
+        if (phoneRes.storage) {
+          document.getElementById('phone-storage').innerText = phoneRes.storage.used + ' / ' + phoneRes.storage.size + ' (' + phoneRes.storage.percent + ')';
+        }
+      } catch {}
+    }
+
+    async function loadPhoneFiles() {
+      try {
+        const res = await fetch(BRIDGE_URL + '/api/files/recent-phone');
+        const data = await res.json();
+        const listEl = document.getElementById('phone-files-list');
+        const files = data.files || [];
+        document.getElementById('phone-file-count').innerText = files.length + ' files in /sdcard/Download';
+
+        listEl.innerHTML = files.map(f => {
+          let icon = '📄';
+          if (f.type === 'image') icon = '🖼️';
+          else if (f.type === 'video') icon = '🎬';
+          else if (f.type === 'apk') icon = '📦';
+
+          const sizeKb = Math.round(f.size / 1024);
+          const sizeStr = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+
+          return `
+            <div class="file-item">
+              <div class="file-info">
+                <div class="file-icon">${icon}</div>
+                <div>
+                  <div class="file-name" title="${f.name}">${f.name}</div>
+                  <div class="file-size">${sizeStr}</div>
+                </div>
+              </div>
+              <button class="btn-pull" onclick="pullFile('${escapeJs(f.name)}')">Save to Mac</button>
+            </div>
+          `;
+        }).join('');
+      } catch {}
+    }
+
+    async function pullFile(filename) {
+      const res = await fetch(BRIDGE_URL + '/api/files/pull-from-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Downloaded ' + filename + ' to ~/Downloads!');
+      } else {
+        alert('Failed to download: ' + (data.error || 'Unknown error'));
+      }
+    }
+
+    async function handleFileSelected(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const alertEl = document.getElementById('drop-alert');
+      alertEl.style.display = 'block';
+      alertEl.innerText = 'Pushing ' + file.name + ' to phone...';
+
+      const res = await fetch(BRIDGE_URL + '/api/files/push-to-phone?name=' + encodeURIComponent(file.name), {
+        method: 'POST',
+        body: file
+      });
+      const data = await res.json();
+      if (data.success) {
+        alertEl.innerText = '✓ ' + file.name + ' saved to phone /sdcard/Download/';
+        setTimeout(() => { alertEl.style.display = 'none'; }, 4000);
+        loadPhoneFiles();
+      }
+    }
+
+    // Drag and drop setup
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFileSelected({ target: { files } });
+      }
+    });
+
+    async function startMirror() {
+      await fetch(BRIDGE_URL + '/api/mirror/start', { method: 'POST' });
+    }
+
+    function escapeJs(str) {
+      return (str || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    // Initial load
+    updateStatus();
+    loadPhoneFiles();
+    setInterval(updateStatus, 3000);
+  </script>
+</body>
+</html>

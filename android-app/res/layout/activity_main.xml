@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0C"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="22dp">
+
+        <!-- Top Header with Status Pill -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mac Continuity"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.02" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Peer-to-Peer Hardware Bridge"
+                    android:textColor="#8E8E93"
+                    android:textSize="13sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvActivePill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● Active"
+                android:textColor="#34C759"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="@drawable/status_badge_green"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp" />
+        </LinearLayout>
+
+        <!-- Card 1: Connected Mac Hardware Telemetry -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="20dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💻"
+                    android:textSize="20sp"
+                    android:layout_marginRight="10dp" />
+
+                <TextView
+                    android:id="@+id/tvMacModel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="MacBook Pro"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvMacBattery"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡ 90%"
+                    android:textColor="#34C759"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#2C2C2E"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="OS Version"
+                    android:textColor="#8E8E93"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvMacOs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="macOS Sequoia 27.0"
+                    android:textColor="#EBEBF5"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Wi-Fi Bridge Endpoint"
+                    android:textColor="#8E8E93"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvMacIp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap to set Mac IP"
+                    android:textColor="#007AFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Card 2: Drop File to Mac (AirDrop from Phone) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg_accent"
+            android:padding="20dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Drop Files to Mac"
+                android:textColor="#007AFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvFileStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pick any photo or file on phone to push directly to Mac ~/Downloads/"
+                android:textColor="#8E8E93"
+                android:textSize="13sp"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="14dp" />
+
+            <Button
+                android:id="@+id/btnSendFile"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Select &amp; Send File to Mac"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="@drawable/button_primary" />
+        </LinearLayout>
+
+        <!-- Card 3: Recent Files on Mac -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="20dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Recent Files in Mac Downloads"
+                android:textColor="#AF52DE"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRecentMacFiles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Syncing file list from Mac..."
+                android:textColor="#EBEBF5"
+                android:textSize="13sp"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Card 4: Universal Clipboard -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="20dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Universal Shared Clipboard"
+                android:textColor="#FF9500"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvClipboard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Clipboard: (synchronized with Mac)"
+                android:textColor="#8E8E93"
+                android:textSize="13sp"
+                android:maxLines="3"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="14dp" />
+
+            <Button
+                android:id="@+id/btnRefreshClip"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:text="Refresh State"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:background="@drawable/button_secondary" />
+        </LinearLayout>
+
+        <!-- Exit / Disconnect Button -->
+        <Button
+            android:id="@+id/btnExitApp"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Disconnect &amp; Exit Service"
+            android:textColor="#FF453A"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/button_danger"
+            android:layout_marginBottom="20dp" />
+
+    </LinearLayout>
+</ScrollView>
