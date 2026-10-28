@@ -6,6 +6,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var webView: WKWebView!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+
         let width: CGFloat = 720
         let height: CGFloat = 780
         
@@ -62,7 +64,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         window.contentView = webView
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            window?.makeKeyAndOrderFront(nil)
+            window?.orderFrontRegardless()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        return true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -71,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 }
 
 let app = NSApplication.shared
+app.setActivationPolicy(.regular)
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
