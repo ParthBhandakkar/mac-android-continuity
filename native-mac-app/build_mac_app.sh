@@ -56,5 +56,9 @@ if [ -f "$DIR/AppIcon.icns" ]; then
   cp "$DIR/AppIcon.icns" "$HUB_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
-echo "SUCCESS: Native macOS App '$HUB_BUNDLE' built successfully!"
-ls -ld "$HUB_BUNDLE"
+rm -rf "/Applications/Aether.app"
+mv "$HUB_BUNDLE" "/Applications/Aether.app"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -r /Applications/Aether.app
+
+echo "SUCCESS: Native macOS App installed cleanly to /Applications/Aether.app"
+ls -ld "/Applications/Aether.app"
