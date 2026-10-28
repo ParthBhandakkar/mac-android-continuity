@@ -164,8 +164,8 @@ async function ensureAdbConnected() {
   }
 }
 
-// Watchdog every 5 seconds to heal any Wi-Fi sleep disconnects
-setInterval(ensureAdbConnected, 5000);
+// Watchdog every 15 seconds to heal any Wi-Fi sleep disconnects
+setInterval(ensureAdbConnected, 15000);
 
 // Helper to run ADB with auto-retry
 async function runAdb(args, timeoutMs = 8000) {
@@ -191,7 +191,6 @@ async function runAdb(args, timeoutMs = 8000) {
 let lastSyncedText = '';
 let lastSyncSource = '';
 let lastSyncTime = 0;
-let scrcpyDaemon = null;
 let activeMirrorProc = null;
 
 async function getMacClipboard() {
@@ -215,47 +214,6 @@ async function setMacClipboard(text) {
   } catch {
     return false;
   }
-}
-
-async function startClipboardDaemon() {
-  if (scrcpyDaemon) {
-    try { scrcpyDaemon.kill(); } catch {}
-  }
-
-  await ensureAdbConnected();
-  if (!TARGET) return;
-
-  // Headless scrcpy to stream Android clipboard changes via UID 2000 in real-time
-  scrcpyDaemon = spawn(SCRCPY_BIN, [
-    `--serial=${TARGET}`,
-    '--no-video',
-    '--no-audio',
-    '--no-window'
-  ]);
-
-  scrcpyDaemon.stdout?.on('data', async (chunk) => {
-    const str = chunk.toString();
-    if (str.includes('Device clipboard copied')) {
-      // Allow pbcopy from scrcpy to settle
-      setTimeout(async () => {
-        const text = await getMacClipboard();
-        if (text && text !== lastSyncedText) {
-          lastSyncedText = text;
-          lastSyncSource = 'phone';
-          lastSyncTime = Date.now();
-          console.log(`[Universal Clipboard] 📱 Phone ➔ 💻 Mac: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`);
-        }
-      }, 60);
-    }
-  });
-
-  scrcpyDaemon.stderr?.on('data', () => {});
-
-  scrcpyDaemon.on('exit', async (code) => {
-    scrcpyDaemon = null;
-    await ensureAdbConnected();
-    setTimeout(startClipboardDaemon, 2500);
-  });
 }
 
 // Check Mac clipboard changes every 500ms
@@ -290,7 +248,6 @@ async function checkMacClipboard() {
 }
 
 setInterval(checkMacClipboard, 500);
-startClipboardDaemon();
 
 // 2. HTTP Server
 const server = http.createServer(async (req, res) => {
