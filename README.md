@@ -20,13 +20,14 @@ Enjoy **60 FPS Metal-accelerated screen mirroring**, **invisible bidirectional U
 
 ## ✨ Key Features
 
+- **🔒 QR Code Mutual Authentication & Wi-Fi Firewall**: Pairing between your Mac and Android phone is established strictly via physical QR code scan. The Mac generates a 192-bit cryptographic token displayed only on your Mac screen. All API endpoints and sockets enforce token verification (`X-Aether-Token`) and IP binding, strictly blocking any unauthorized device on the local Wi-Fi from connecting, intercepting traffic, or triggering actions.
 - **⚡ 60 FPS Metal-Accelerated Screen Mirroring**: Ultra-low latency video streaming powered by Apple VideoToolbox hardware decoding and Metal rendering (`scrcpy` backend). Seamless keyboard navigation, scroll gestures, and navigation bar controls (Back, Home, App Switcher).
 - **📋 Universal Bidirectional Clipboard**: Copy on macOS (`Cmd+C`) and paste immediately on Android. Copy on Android and paste on Mac (`Cmd+V`). Features cryptographic content hashing and timestamp arbitration to prevent feedback loops.
 - **📲 AirDrop-Style File Transfers**:
   - **Mac ➔ Phone**: Drop any photo, document, or APK into the Aether window. Files are saved directly to `/sdcard/Download/` and `/sdcard/Pictures/`, automatically indexed into the Android Gallery via `MediaScannerConnection`, and trigger a heads-up notification.
   - **Phone ➔ Mac**: Tap "Send File to Mac" from the Aether Android app. Files land directly in `~/Downloads` on your Mac with native macOS banners and chime sounds.
 - **📊 Real-Time Cross-Device Telemetry**: View live battery percentage, charging state, OS versions, storage usage, and local network IPs across both devices.
-- **🔒 100% Local & Private**: All communication flows strictly over your local Wi-Fi network and ADB TCP/IP sockets. No servers, no accounts, and no third-party data tracking.
+- **🛡️ 100% Local, Peer-to-Peer & Private**: All communication flows strictly over your local Wi-Fi network and ADB TCP/IP sockets. Zero cloud servers, zero accounts, and zero third-party telemetry.
 
 ---
 

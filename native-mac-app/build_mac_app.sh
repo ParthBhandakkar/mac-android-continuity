@@ -15,6 +15,9 @@ mkdir -p "$HUB_BUNDLE/Contents/Resources"
 
 swiftc -O -target arm64-apple-macosx14.0 -framework Cocoa -framework WebKit -o "$HUB_BUNDLE/Contents/MacOS/$HUB_APP" ContinuityHub.swift
 cp "$DIR/hub_ui.html" "$HUB_BUNDLE/Contents/Resources/hub_ui.html"
+if [ -f "$DIR/qrcode.min.js" ]; then
+  cp "$DIR/qrcode.min.js" "$HUB_BUNDLE/Contents/Resources/qrcode.min.js"
+fi
 
 cat << 'EOF' > "$HUB_BUNDLE/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>

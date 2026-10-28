@@ -27,9 +27,15 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int PICK_FILE_REQUEST = 1002;
+    private static final int SCAN_QR_REQUEST = 1003;
+    private static final int PERMISSION_CAMERA_REQUEST = 1004;
 
     private String getMacBridgeIp() {
         return getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("mac_bridge_ip", "");
+    }
+
+    private String getPairKey() {
+        return getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("aether_pair_key", "");
     }
 
     private String getMacBridgeUrl() {
@@ -37,6 +43,11 @@ public class MainActivity extends Activity {
         if (ip.isEmpty()) return null;
         return "http://" + ip + ":8898";
     }
+
+    private TextView tvPairBadge;
+    private TextView tvPairSubtitle;
+    private Button btnScanQr;
+    private Button btnUnpair;
 
     private TextView tvMacModel;
     private TextView tvMacIp;
@@ -59,6 +70,11 @@ public class MainActivity extends Activity {
 
         mainHandler = new Handler(Looper.getMainLooper());
 
+        tvPairBadge = findViewById(R.id.tvPairBadge);
+        tvPairSubtitle = findViewById(R.id.tvPairSubtitle);
+        btnScanQr = findViewById(R.id.btnScanQr);
+        btnUnpair = findViewById(R.id.btnUnpair);
+
         tvMacModel = findViewById(R.id.tvMacModel);
         tvMacIp = findViewById(R.id.tvMacIp);
         tvMacBattery = findViewById(R.id.tvMacBattery);
@@ -70,6 +86,8 @@ public class MainActivity extends Activity {
         btnRefreshClip = findViewById(R.id.btnRefreshClip);
         btnExitApp = findViewById(R.id.btnExitApp);
 
+        btnScanQr.setOnClickListener(v -> launchQrScanner());
+        btnUnpair.setOnClickListener(v -> unpairDevice());
         tvMacIp.setOnClickListener(v -> showEditIpDialog());
 
         // Start background continuity foreground service
@@ -101,12 +119,63 @@ public class MainActivity extends Activity {
         };
         registerReceiver(exitReceiver, new IntentFilter("com.workzera.continuity.EXIT_APP"));
 
+        updatePairingUi();
+        refreshData();
+    }
+
+    private void updatePairingUi() {
+        String key = getPairKey();
+        String macName = getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("mac_name", "Mac");
+        if (!key.isEmpty()) {
+            tvPairBadge.setText("● Paired & Encrypted");
+            tvPairBadge.setTextColor(0xFF34C759);
+            tvPairBadge.setBackgroundResource(R.drawable.status_badge_green);
+            tvPairSubtitle.setText("Cryptographically paired with " + macName + ". All network traffic is authenticated.");
+            btnScanQr.setText("Re-scan QR Code");
+            btnUnpair.setVisibility(android.view.View.VISIBLE);
+        } else {
+            tvPairBadge.setText("Unpaired");
+            tvPairBadge.setTextColor(0xFFFF9500);
+            tvPairBadge.setBackgroundResource(R.drawable.status_badge_gray);
+            tvPairSubtitle.setText("Scan the QR code on your Mac to establish a secure 192-bit cryptographic link. Other devices on Wi-Fi cannot connect.");
+            btnScanQr.setText("📷 Scan QR Code on Mac");
+            btnUnpair.setVisibility(android.view.View.GONE);
+        }
+    }
+
+    private void launchQrScanner() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.CAMERA}, PERMISSION_CAMERA_REQUEST);
+                return;
+            }
+        }
+        startActivityForResult(new Intent(this, ScanQrActivity.class), SCAN_QR_REQUEST);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_CAMERA_REQUEST && grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startActivityForResult(new Intent(this, ScanQrActivity.class), SCAN_QR_REQUEST);
+        }
+    }
+
+    private void unpairDevice() {
+        getSharedPreferences("ContinuityPrefs", MODE_PRIVATE)
+                .edit()
+                .remove("aether_pair_key")
+                .remove("mac_name")
+                .apply();
+        Toast.makeText(this, "Device unpaired. Scan QR to reconnect.", Toast.LENGTH_SHORT).show();
+        updatePairingUi();
         refreshData();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        updatePairingUi();
         refreshData();
     }
 
@@ -150,14 +219,18 @@ public class MainActivity extends Activity {
             return;
         }
 
+        final String token = getPairKey();
+
         // Fetch Mac status
         new Thread(() -> {
             try {
                 URL url = new URL(bridgeUrl + "/api/status");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                if (!token.isEmpty()) conn.setRequestProperty("X-Aether-Token", token);
                 conn.setConnectTimeout(2000);
                 conn.setReadTimeout(2000);
-                if (conn.getResponseCode() == 200) {
+                int code = conn.getResponseCode();
+                if (code == 200) {
                     BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
@@ -166,6 +239,13 @@ public class MainActivity extends Activity {
 
                     String json = sb.toString();
                     mainHandler.post(() -> parseMacStatus(json));
+                } else if (code == 401) {
+                    mainHandler.post(() -> {
+                        tvMacModel.setText("Mac (Pairing Required)");
+                        tvPairBadge.setText("⚠️ Unauthorized");
+                        tvPairBadge.setTextColor(0xFFFF453A);
+                        tvPairBadge.setBackgroundResource(R.drawable.status_badge_gray);
+                    });
                 }
             } catch (Exception ignored) {}
         }).start();
@@ -175,6 +255,7 @@ public class MainActivity extends Activity {
             try {
                 URL url = new URL(bridgeUrl + "/api/files/recent-mac");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                if (!token.isEmpty()) conn.setRequestProperty("X-Aether-Token", token);
                 conn.setConnectTimeout(2000);
                 conn.setReadTimeout(2000);
                 if (conn.getResponseCode() == 200) {
@@ -195,6 +276,7 @@ public class MainActivity extends Activity {
             try {
                 URL url = new URL(bridgeUrl + "/api/clipboard");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                if (!token.isEmpty()) conn.setRequestProperty("X-Aether-Token", token);
                 conn.setConnectTimeout(1500);
                 conn.setReadTimeout(1500);
                 if (conn.getResponseCode() == 200) {
@@ -267,6 +349,9 @@ public class MainActivity extends Activity {
         if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri uri = data.getData();
             uploadFileToMac(uri);
+        } else if (requestCode == SCAN_QR_REQUEST && resultCode == RESULT_OK) {
+            updatePairingUi();
+            refreshData();
         }
     }
 
@@ -284,6 +369,8 @@ public class MainActivity extends Activity {
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/octet-stream");
                 conn.setRequestProperty("X-Filename", filename);
+                String token = getPairKey();
+                if (!token.isEmpty()) conn.setRequestProperty("X-Aether-Token", token);
 
                 OutputStream out = conn.getOutputStream();
                 byte[] buffer = new byte[8192];
@@ -300,6 +387,8 @@ public class MainActivity extends Activity {
                     if (code == 200) {
                         tvFileStatus.setText("✓ " + filename + " sent to Mac ~/Downloads!");
                         Toast.makeText(this, "Transferred to Mac ~/Downloads!", Toast.LENGTH_SHORT).show();
+                    } else if (code == 401) {
+                        tvFileStatus.setText("⛔ Unauthorized (Scan QR to pair)");
                     } else {
                         tvFileStatus.setText("Failed to transfer: HTTP " + code);
                     }

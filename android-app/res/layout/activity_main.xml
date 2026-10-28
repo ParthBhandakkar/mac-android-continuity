@@ -59,6 +59,87 @@
                 android:paddingBottom="5dp" />
         </LinearLayout>
 
+        <!-- Card 0: Security & Mutual QR Pairing -->
+        <LinearLayout
+            android:id="@+id/cardPairing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:padding="20dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvPairIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔒"
+                    android:textSize="20sp"
+                    android:layout_marginRight="10dp" />
+
+                <TextView
+                    android:id="@+id/tvPairTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Hardware Authentication"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvPairBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Unpaired"
+                    android:textColor="#FF9500"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/status_badge_gray"
+                    android:paddingLeft="8dp"
+                    android:paddingRight="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvPairSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Scan the QR code on your Mac to establish a secure 192-bit cryptographic link. Other devices on the Wi-Fi cannot connect."
+                android:textColor="#8E8E93"
+                android:textSize="13sp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
+
+            <Button
+                android:id="@+id/btnScanQr"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="📷 Scan QR Code on Mac"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:background="@drawable/button_primary" />
+
+            <Button
+                android:id="@+id/btnUnpair"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="Disconnect / Unpair"
+                android:textColor="#FF453A"
+                android:textSize="13sp"
+                android:background="@drawable/button_secondary"
+                android:visibility="gone"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
         <!-- Card 1: Connected Mac Hardware Telemetry -->
         <LinearLayout
             android:layout_width="match_parent"

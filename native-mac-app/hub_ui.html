@@ -208,7 +208,7 @@
       background: var(--accent);
       border-color: var(--accent);
     }
-  </style>
+  <script src="qrcode.min.js"></script>
 </head>
 <body>
 
@@ -221,6 +221,30 @@
       📋 Universal Clipboard: <span style="color:var(--accent-green); font-weight:600;">Active</span>
     </div>
   </header>
+
+  <!-- Hardware QR Code Mutual Pairing Card -->
+  <div id="pairing-card" class="device-card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(88,86,214,0.12), rgba(0,122,255,0.12)); border: 1px solid rgba(88,86,214,0.3);">
+    <div style="display: flex; gap: 22px; align-items: center; flex-wrap: wrap;">
+      <div id="qrcode-box" style="background: #ffffff; padding: 10px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; min-width: 130px; min-height: 130px;">
+        <div id="qrcode"></div>
+      </div>
+      <div style="flex: 1; min-width: 250px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span style="font-size: 1.05rem; font-weight: 700;">Hardware Pairing &amp; Security</span>
+          <span id="qr-status-pill" class="status-badge" style="background: rgba(255,149,0,0.15); color: #ff9500;"><div class="dot" style="background:#ff9500;"></div> Unpaired</span>
+        </div>
+        <p id="qr-desc" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 12px;">
+          Scan this QR code from the <strong>Aether</strong> app on your Android phone. Only the scanned phone will be allowed to communicate with this Mac over Wi-Fi.
+        </p>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            Bridge: <code id="qr-bridge-ip" style="color: var(--accent); font-weight: 600;">Detecting...</code>
+          </div>
+          <button id="btn-unpair" class="btn-pull" style="display:none; color:#ff453a; border-color:rgba(255,69,58,0.4);" onclick="unpairDevice()">Unpair / Reset Key</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Side-by-Side Device Telemetry -->
   <div class="devices-grid">
@@ -276,8 +300,83 @@
 
   <script>
     const BRIDGE_URL = 'http://127.0.0.1:8898';
+    let currentQrPayload = '';
+    let qrInstance = null;
+
+    async function checkPairing() {
+      try {
+        const res = await fetch(BRIDGE_URL + '/api/pair/qr');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const pill = document.getElementById('qr-status-pill');
+        const desc = document.getElementById('qr-desc');
+        const qrBox = document.getElementById('qrcode-box');
+        const bridgeIpEl = document.getElementById('qr-bridge-ip');
+        const btnUnpair = document.getElementById('btn-unpair');
+
+        if (bridgeIpEl) bridgeIpEl.innerText = `${data.macIp}:${data.port}`;
+
+        if (data.isPaired && data.pairedDevice) {
+          if (pill) {
+            pill.innerHTML = '<div class="dot" style="background:var(--accent-green);"></div> Paired &amp; Encrypted';
+            pill.style.background = 'rgba(52, 199, 89, 0.15)';
+            pill.style.color = 'var(--accent-green)';
+          }
+          if (desc) desc.innerHTML = `Connected to <strong>${data.pairedDevice.model || 'Android Phone'}</strong> (${data.pairedDevice.ip}). Mutual authentication active.`;
+          if (qrBox) qrBox.style.display = 'none';
+          if (btnUnpair) btnUnpair.style.display = 'inline-block';
+        } else {
+          if (pill) {
+            pill.innerHTML = '<div class="dot" style="background:#ff9500;"></div> Waiting for scan...';
+            pill.style.background = 'rgba(255, 149, 0, 0.15)';
+            pill.style.color = '#ff9500';
+          }
+          if (desc) desc.innerHTML = 'Scan this QR code from the <strong>Aether</strong> app on your Android phone. Only the scanned phone can connect.';
+          if (qrBox) qrBox.style.display = 'inline-flex';
+          if (btnUnpair) btnUnpair.style.display = 'none';
+
+          if (data.qrPayload && data.qrPayload !== currentQrPayload) {
+            currentQrPayload = data.qrPayload;
+            renderQr(currentQrPayload);
+          }
+        }
+      } catch {}
+    }
+
+    function renderQr(text) {
+      const el = document.getElementById('qrcode');
+      if (!el) return;
+      el.innerHTML = '';
+      if (window.QRCode) {
+        qrInstance = new QRCode(el, {
+          text: text,
+          width: 120,
+          height: 120,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    }
+
+    async function unpairDevice() {
+      if (!confirm('Are you sure you want to unpair this phone? A new pairing key will be generated.')) return;
+      try {
+        const res = await fetch(BRIDGE_URL + '/api/unpair', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          currentQrPayload = '';
+          await checkPairing();
+          await updateStatus();
+        }
+      } catch (err) {
+        alert('Error unpairing: ' + err.message);
+      }
+    }
 
     async function updateStatus() {
+      checkPairing();
       try {
         const [macRes, phoneRes] = await Promise.all([
           fetch(BRIDGE_URL + '/api/status').then(r => r.json()),
@@ -289,10 +388,10 @@
         document.getElementById('mac-battery').innerText = macRes.battery + '%';
         document.getElementById('mac-ip').innerText = macRes.ip;
 
-        document.getElementById('phone-model').innerText = phoneRes.model || 'OnePlus CPH2413';
-        document.getElementById('phone-os').innerText = phoneRes.androidVersion || 'Android 15';
-        document.getElementById('phone-battery').innerText = phoneRes.battery + '%';
-        if (phoneRes.storage) {
+        document.getElementById('phone-model').innerText = phoneRes.model || (phoneRes.isPaired ? 'Android Device' : 'Unpaired');
+        document.getElementById('phone-os').innerText = phoneRes.androidVersion || (phoneRes.isPaired ? 'Android' : 'Waiting for pair');
+        document.getElementById('phone-battery').innerText = phoneRes.battery !== '--' ? phoneRes.battery + '%' : '--%';
+        if (phoneRes.storage && phoneRes.storage.used) {
           document.getElementById('phone-storage').innerText = phoneRes.storage.used + ' / ' + phoneRes.storage.size + ' (' + phoneRes.storage.percent + ')';
         }
       } catch {}

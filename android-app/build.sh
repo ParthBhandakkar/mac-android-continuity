@@ -41,13 +41,13 @@ echo "[1/6] Compiling resources with aapt2..."
 
 echo "[2/6] Compiling Java sources..."
 "$JAVAC" -d build/obj \
-  -classpath "$PLATFORM:build/gen" \
+  -classpath "$PLATFORM:libs/core-3.5.3.jar:build/gen" \
   -source 1.8 -target 1.8 \
   src/com/workzera/continuity/*.java build/gen/com/workzera/continuity/R.java
 
 echo "[3/6] Converting bytecode to Dalvik Executable (classes.dex) with d8..."
 find build/obj -name "*.class" > build/classes.txt
-"$BUILD_TOOLS/d8" $(cat build/classes.txt) --output build/apk/ --lib "$PLATFORM"
+"$BUILD_TOOLS/d8" $(cat build/classes.txt) libs/core-3.5.3.jar --output build/apk/ --lib "$PLATFORM"
 
 echo "[4/6] Packaging APK..."
 cd build/apk

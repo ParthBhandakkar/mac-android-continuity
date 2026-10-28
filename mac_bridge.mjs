@@ -18,6 +18,7 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -25,6 +26,36 @@ const execFileAsync = promisify(execFile);
 
 const PORT = process.env.PORT || 8898;
 const HOST = '0.0.0.0';
+
+// Secure Persistent Auth Store
+const AUTH_FILE = path.join(os.homedir(), '.aether_auth.json');
+
+function loadAuth() {
+  try {
+    if (fs.existsSync(AUTH_FILE)) {
+      const data = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
+      if (data && data.pairKey) return data;
+    }
+  } catch (err) {
+    console.error('[Aether Auth] Error reading auth store:', err);
+  }
+  const initial = {
+    pairKey: crypto.randomBytes(24).toString('hex'),
+    pairedDevice: null
+  };
+  saveAuth(initial);
+  return initial;
+}
+
+function saveAuth(data) {
+  try {
+    fs.writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[Aether Auth] Error saving auth store:', err);
+  }
+}
+
+let authState = loadAuth();
 
 function findAdbBinary() {
   if (process.env.ADB_PATH && fs.existsSync(process.env.ADB_PATH)) return process.env.ADB_PATH;
@@ -70,10 +101,10 @@ function getMacLocalIp() {
   return '127.0.0.1';
 }
 
-let TARGET = process.env.TARGET || (process.env.PHONE_IP ? `${process.env.PHONE_IP}:${process.env.PHONE_PORT || '5555'}` : '');
+let TARGET = process.env.TARGET || (authState.pairedDevice ? `${authState.pairedDevice.ip}:5555` : '');
 
 function getPhoneCompanionUrl() {
-  const ip = TARGET ? TARGET.split(':')[0] : '127.0.0.1';
+  const ip = authState.pairedDevice ? authState.pairedDevice.ip : (TARGET ? TARGET.split(':')[0] : '127.0.0.1');
   return `http://${ip}:8899`;
 }
 
@@ -128,34 +159,25 @@ async function discoverPhoneIp() {
 }
 
 // Helper to keep ADB connected persistently
+// Helper to keep ADB connected persistently to paired device only
 let isReconnectingAdb = false;
 async function ensureAdbConnected() {
   if (isReconnectingAdb) return;
+  if (!authState.pairedDevice && !process.env.TARGET) return;
+
+  const targetIp = authState.pairedDevice ? authState.pairedDevice.ip : TARGET.split(':')[0];
+  TARGET = `${targetIp}:5555`;
+
   try {
     const { stdout } = await execFileAsync(ADB_BIN, ['devices']).catch(() => ({ stdout: '' }));
-    
-    // Auto-detect phone IP or serial if already listed as device
-    const match = stdout.match(/^([^\s]+)\s+device/m);
-    if (match) {
-      if (match[1] !== TARGET) {
-        TARGET = match[1];
-        console.log(`[Mac Bridge] Auto-detected active Android device: ${TARGET}`);
-      }
+    if (stdout.includes(TARGET) && !stdout.includes(`${TARGET}\toffline`)) {
       return;
     }
 
-    // No active device attached: run discovery
     isReconnectingAdb = true;
-    if (!TARGET || !stdout.includes(TARGET)) {
-      const foundIp = await discoverPhoneIp();
-      if (foundIp) {
-        TARGET = `${foundIp}:5555`;
-        console.log(`[Mac Bridge] Discovered Android phone on Wi-Fi at ${TARGET}`);
-      }
-    }
-
-    if (TARGET && (!stdout.includes(TARGET) || stdout.includes(`${TARGET}\toffline`))) {
-      console.log(`[Mac Bridge] Connecting to ${TARGET}...`);
+    const isPortOpen = await checkPortOpen(targetIp, 5555, 300);
+    if (isPortOpen) {
+      console.log(`[Aether Bridge] Connecting ADB to paired device ${TARGET}...`);
       await execFileAsync(ADB_BIN, ['connect', TARGET], { timeout: 3500 }).catch(() => {});
     }
     isReconnectingAdb = false;
@@ -164,7 +186,7 @@ async function ensureAdbConnected() {
   }
 }
 
-// Watchdog every 15 seconds to heal any Wi-Fi sleep disconnects
+// Watchdog every 15 seconds to maintain link with paired device
 setInterval(ensureAdbConnected, 15000);
 
 // Helper to run ADB with auto-retry
@@ -216,31 +238,31 @@ async function setMacClipboard(text) {
   }
 }
 
-// Check Mac clipboard changes every 500ms
+// Check Mac clipboard changes every 500ms and sync with paired phone only
 async function checkMacClipboard() {
+  if (!authState.pairedDevice) return;
   try {
     const currentMac = await getMacClipboard();
     if (!currentMac) return;
 
-    // Strict deduplication: if identical to current synced text, ignore completely
     if (currentMac === lastSyncedText) return;
 
-    // If text was set by phone within last 1200ms, ignore to avoid race loop
     if (lastSyncSource === 'phone' && Date.now() - lastSyncTime < 1200) {
       lastSyncedText = currentMac;
       return;
     }
 
-    // New Mac copy detected
     lastSyncedText = currentMac;
     lastSyncSource = 'mac';
     lastSyncTime = Date.now();
     console.log(`[Universal Clipboard] 💻 Mac ➔ 📱 Phone: "${currentMac.substring(0, 30)}${currentMac.length > 30 ? '...' : ''}"`);
 
-    // Push to Android Companion
     fetch(`${getPhoneCompanionUrl()}/api/clipboard`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Aether-Token': authState.pairKey
+      },
       body: JSON.stringify({ text: currentMac, source: 'mac' }),
       signal: AbortSignal.timeout(1500)
     }).catch(() => {});
@@ -249,14 +271,14 @@ async function checkMacClipboard() {
 
 setInterval(checkMacClipboard, 500);
 
-// 2. HTTP Server
+// 2. HTTP Server with QR Pairing & Token Verification
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Filename');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Filename, X-Aether-Token');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -264,13 +286,99 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Auto-discover phone endpoint from incoming mobile traffic
-  const clientIp = req.socket.remoteAddress?.replace(/^.*:/, '');
-  if (clientIp && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
-    if (!TARGET || !TARGET.includes(clientIp)) {
-      TARGET = `${clientIp}:5555`;
-      console.log(`[Mac Bridge] Discovered phone endpoint from incoming HTTP traffic: ${TARGET}`);
-      ensureAdbConnected();
+  const rawIp = req.socket.remoteAddress || '';
+  const clientIp = rawIp.replace(/^.*:/, '');
+  const hostHeader = (req.headers.host || '').split(':')[0];
+  const isLocalhost = ['127.0.0.1', '::1', 'localhost'].includes(clientIp) || ['127.0.0.1', 'localhost'].includes(hostHeader);
+
+  // 1. Pairing Endpoints
+  // A. Get QR Code Pairing Payload (Mac Local UI Only)
+  if (pathname === '/api/pair/qr' && req.method === 'GET') {
+    if (!isLocalhost) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Pairing QR info only accessible from local Mac UI' }));
+      return;
+    }
+    const macIp = getMacLocalIp();
+    const qrData = {
+      aether: true,
+      ip: macIp,
+      port: PORT,
+      key: authState.pairKey,
+      name: os.hostname().replace(/\.local$/, '')
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      isPaired: !!authState.pairedDevice,
+      pairedDevice: authState.pairedDevice,
+      pairKey: authState.pairKey,
+      macIp,
+      port: PORT,
+      qrPayload: JSON.stringify(qrData)
+    }));
+    return;
+  }
+
+  // B. Handshake Pairing from Phone (Camera QR Scan)
+  if (pathname === '/api/pair' && req.method === 'POST') {
+    const body = await parseJsonBody(req);
+    const { token, model, manufacturer } = body;
+    if (!token || token !== authState.pairKey) {
+      console.warn(`[Aether Auth] ⚠️ Rejected pairing attempt from ${clientIp} with invalid token`);
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid pairing token' }));
+      return;
+    }
+
+    // Handshake successful: bind this device
+    authState.pairedDevice = {
+      ip: clientIp,
+      model: model || 'Android Device',
+      manufacturer: manufacturer || 'Android',
+      pairedAt: Date.now()
+    };
+    saveAuth(authState);
+    TARGET = `${clientIp}:5555`;
+    console.log(`[Aether Auth] ✓ Device paired successfully: ${authState.pairedDevice.model} (${clientIp})`);
+    ensureAdbConnected();
+
+    execFile('osascript', ['-e', `display notification "Paired with ${authState.pairedDevice.model} (${clientIp})" with title "Aether Connected" sound name "Glass"`], () => {});
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      message: 'Paired successfully',
+      macName: os.hostname().replace(/\.local$/, '')
+    }));
+    return;
+  }
+
+  // C. Unpair Device & Rotate Key (Mac Local UI Only)
+  if (pathname === '/api/unpair' && req.method === 'POST') {
+    if (!isLocalhost) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unpair only allowed from Mac' }));
+      return;
+    }
+    authState.pairKey = crypto.randomBytes(24).toString('hex');
+    authState.pairedDevice = null;
+    saveAuth(authState);
+    TARGET = '';
+    console.log('[Aether Auth] Device unpaired. New pairing key generated.');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, message: 'Unpaired and rotated key' }));
+    return;
+  }
+
+  // 2. Strict Firewall Middleware:
+  // Reject ANY incoming network connection that did not scan the QR code and does not present the token
+  if (!isLocalhost) {
+    const incomingToken = req.headers['x-aether-token'];
+    if (!authState.pairedDevice || incomingToken !== authState.pairKey || clientIp !== authState.pairedDevice.ip) {
+      console.warn(`[Aether Firewall] ⛔ Blocked unauthorized request to ${pathname} from ${clientIp} (Token: ${incomingToken ? 'present' : 'missing'})`);
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized. Device not paired with this Mac. Scan QR code to connect.' }));
+      return;
     }
   }
 
@@ -305,7 +413,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/phone/status' && req.method === 'GET') {
     let companionStatus = null;
     try {
-      const cRes = await fetch(`${getPhoneCompanionUrl()}/api/status`, { signal: AbortSignal.timeout(1500) });
+      const cRes = await fetch(`${getPhoneCompanionUrl()}/api/status`, {
+        headers: { 'X-Aether-Token': authState.pairKey },
+        signal: AbortSignal.timeout(1500)
+      });
       if (cRes.ok) companionStatus = await cRes.json();
     } catch {}
 
@@ -324,13 +435,15 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      model: companionStatus?.model || 'Android Device',
-      manufacturer: companionStatus?.manufacturer || 'Android',
+      model: companionStatus?.model || authState.pairedDevice?.model || 'Android Device',
+      manufacturer: companionStatus?.manufacturer || authState.pairedDevice?.manufacturer || 'Android',
       battery: companionStatus?.battery ?? '--',
       androidVersion: companionStatus?.androidVersion || 'Android',
       ip: TARGET ? TARGET.split(':')[0] : 'Not connected',
       storage: storageInfo,
-      adbConnected: !!TARGET
+      adbConnected: !!TARGET,
+      isPaired: !!authState.pairedDevice,
+      pairedDevice: authState.pairedDevice
     }));
     return;
   }
@@ -478,7 +591,10 @@ const server = http.createServer(async (req, res) => {
         // Notify companion service to scan into MediaStore & show heads-up alert
         fetch(`${getPhoneCompanionUrl()}/api/file-received`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Aether-Token': authState.pairKey
+          },
           body: JSON.stringify({ filename: safeName, isImage: isImg }),
           signal: AbortSignal.timeout(2500)
         }).catch(() => {});

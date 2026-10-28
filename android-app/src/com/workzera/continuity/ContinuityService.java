@@ -192,10 +192,26 @@ public class ContinuityService extends Service {
                 String path = parts.length > 1 ? parts[1] : "/";
 
                 int contentLength = 0;
+                String aetherToken = null;
                 String header;
                 while ((header = in.readLine()) != null && !header.isEmpty()) {
-                    if (header.toLowerCase().startsWith("content-length:")) {
+                    String lower = header.toLowerCase();
+                    if (lower.startsWith("content-length:")) {
                         contentLength = Integer.parseInt(header.substring(15).trim());
+                    } else if (lower.startsWith("x-aether-token:")) {
+                        aetherToken = header.substring(15).trim();
+                    }
+                }
+
+                // Verify pairing token if device is paired
+                String savedKey = getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("aether_pair_key", "");
+                if (!savedKey.isEmpty()) {
+                    if (aetherToken == null || !savedKey.equals(aetherToken)) {
+                        String unauthorized = "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"error\":\"Unauthorized. Device not paired with this phone.\"}";
+                        out.write(unauthorized.getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                        socket.close();
+                        return;
                     }
                 }
 
@@ -341,11 +357,15 @@ public class ContinuityService extends Service {
         new Thread(() -> {
             try {
                 String macIp = getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("mac_bridge_ip", "");
+                String pairKey = getSharedPreferences("ContinuityPrefs", MODE_PRIVATE).getString("aether_pair_key", "");
                 if (macIp.isEmpty()) return;
                 java.net.URL url = new java.net.URL("http://" + macIp + ":8898/api/clipboard");
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                if (!pairKey.isEmpty()) {
+                    conn.setRequestProperty("X-Aether-Token", pairKey);
+                }
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(1500);
                 conn.setReadTimeout(1500);
