@@ -100,6 +100,18 @@ public class MainActivity extends Activity {
             }
         } catch (Throwable ignored) {}
 
+        // Request battery optimization exemption for uninterrupted background continuity
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent bOptIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    bOptIntent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(bOptIntent);
+                }
+            }
+        } catch (Throwable ignored) {}
+
         btnSendFile.setOnClickListener(v -> openFilePicker());
         btnRefreshClip.setOnClickListener(v -> refreshData());
         

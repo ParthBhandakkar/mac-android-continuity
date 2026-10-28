@@ -125,7 +125,7 @@ function checkPortOpen(ip, port, timeoutMs = 250) {
   });
 }
 
-// Discover phone IP across mDNS and local subnet
+// Discover phone IP across mDNS, ARP, and fast local subnet sweep
 async function discoverPhoneIp() {
   // 1. Check mdns services from adb
   try {
@@ -133,7 +133,7 @@ async function discoverPhoneIp() {
     const match = stdout.match(/(\d+\.\d+\.\d+\.\d+):(\d+)/);
     if (match) {
       const ip = match[1];
-      if (await checkPortOpen(ip, 5555, 300)) return ip;
+      if (await checkPortOpen(ip, 5555, 300) || await checkPortOpen(ip, 8899, 300)) return ip;
     }
   } catch {}
 
@@ -155,17 +155,39 @@ async function discoverPhoneIp() {
     }
   } catch {}
 
+  // 3. Fast subnet scan on local Wi-Fi subnet
+  try {
+    const localIp = getMacLocalIp();
+    if (localIp && localIp !== '127.0.0.1') {
+      const prefix = localIp.substring(0, localIp.lastIndexOf('.') + 1);
+      const checks = [];
+      for (let i = 2; i < 255; i++) {
+        const testIp = `${prefix}${i}`;
+        if (testIp === localIp) continue;
+        checks.push(
+          checkPortOpen(testIp, 8899, 120).then(async (open) => {
+            if (open) return testIp;
+            const open5555 = await checkPortOpen(testIp, 5555, 120);
+            return open5555 ? testIp : null;
+          })
+        );
+      }
+      const results = await Promise.all(checks);
+      const found = results.find(Boolean);
+      if (found) return found;
+    }
+  } catch {}
+
   return null;
 }
 
-// Helper to keep ADB connected persistently
-// Helper to keep ADB connected persistently to paired device only
+// Helper to keep ADB connected persistently with dynamic IP auto-recovery
 let isReconnectingAdb = false;
 async function ensureAdbConnected() {
   if (isReconnectingAdb) return;
   if (!authState.pairedDevice && !process.env.TARGET) return;
 
-  const targetIp = authState.pairedDevice ? authState.pairedDevice.ip : TARGET.split(':')[0];
+  let targetIp = authState.pairedDevice ? authState.pairedDevice.ip : TARGET.split(':')[0];
   TARGET = `${targetIp}:5555`;
 
   try {
@@ -175,7 +197,25 @@ async function ensureAdbConnected() {
     }
 
     isReconnectingAdb = true;
-    const isPortOpen = await checkPortOpen(targetIp, 5555, 300);
+    let isPortOpen = await checkPortOpen(targetIp, 5555, 300);
+    if (!isPortOpen) {
+      const isCompanionOpen = await checkPortOpen(targetIp, 8899, 300);
+      if (!isCompanionOpen) {
+        // Target IP is down or changed. Auto-discover phone on local network!
+        const discoveredIp = await discoverPhoneIp();
+        if (discoveredIp && discoveredIp !== targetIp) {
+          console.log(`[Aether Bridge] 📱 Phone detected at new IP: ${discoveredIp} (was ${targetIp})`);
+          targetIp = discoveredIp;
+          TARGET = `${targetIp}:5555`;
+          if (authState.pairedDevice) {
+            authState.pairedDevice.ip = targetIp;
+            saveAuth(authState);
+          }
+          isPortOpen = await checkPortOpen(targetIp, 5555, 300);
+        }
+      }
+    }
+
     if (isPortOpen) {
       console.log(`[Aether Bridge] Connecting ADB to paired device ${TARGET}...`);
       await execFileAsync(ADB_BIN, ['connect', TARGET], { timeout: 3500 }).catch(() => {});
@@ -186,8 +226,8 @@ async function ensureAdbConnected() {
   }
 }
 
-// Watchdog every 15 seconds to maintain link with paired device
-setInterval(ensureAdbConnected, 15000);
+// Watchdog every 10 seconds to maintain link with paired device
+setInterval(ensureAdbConnected, 10000);
 
 // Helper to run ADB with auto-retry
 async function runAdb(args, timeoutMs = 8000) {

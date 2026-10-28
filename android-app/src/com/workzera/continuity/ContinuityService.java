@@ -19,6 +19,9 @@ import android.os.Looper;
 import android.os.StatFs;
 import android.media.MediaScannerConnection;
 import android.provider.ContactsContract;
+import android.os.PowerManager;
+import android.net.wifi.WifiManager;
+import android.content.pm.ServiceInfo;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -41,6 +44,47 @@ public class ContinuityService extends Service {
     private ClipboardManager clipboardManager;
     private Handler mainHandler;
     private volatile String latestClipboard = "";
+    private PowerManager.WakeLock wakeLock;
+    private WifiManager.WifiLock wifiLock;
+
+    private void acquireLocks() {
+        try {
+            if (wakeLock == null || !wakeLock.isHeld()) {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Aether:ContinuityLock");
+                    wakeLock.setReferenceCounted(false);
+                    wakeLock.acquire();
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        try {
+            if (wifiLock == null || !wifiLock.isHeld()) {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                if (wm != null) {
+                    wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Aether:WifiLock");
+                    wifiLock.setReferenceCounted(false);
+                    wifiLock.acquire();
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private void promoteToForeground() {
+        try {
+            Notification n = buildNotification();
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(1001, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+            } else {
+                startForeground(1001, n);
+            }
+        } catch (Throwable ignored) {
+            try {
+                startForeground(1001, buildNotification());
+            } catch (Throwable ignored2) {}
+        }
+    }
 
     @Override
     public void onCreate() {
@@ -49,9 +93,8 @@ public class ContinuityService extends Service {
         mainHandler = new Handler(Looper.getMainLooper());
 
         createNotificationChannel();
-        try {
-            startForeground(1001, buildNotification());
-        } catch (Throwable ignored) {}
+        promoteToForeground();
+        acquireLocks();
 
         try {
             if (clipboardManager != null) {
@@ -131,9 +174,8 @@ public class ContinuityService extends Service {
             return START_NOT_STICKY;
         }
 
-        try {
-            startForeground(1001, buildNotification());
-        } catch (Throwable ignored) {}
+        promoteToForeground();
+        acquireLocks();
 
         return START_STICKY;
     }
@@ -143,6 +185,13 @@ public class ContinuityService extends Service {
         try {
             if (serverSocket != null) serverSocket.close();
         } catch (Exception ignored) {}
+
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try { wakeLock.release(); } catch (Throwable ignored) {}
+        }
+        if (wifiLock != null && wifiLock.isHeld()) {
+            try { wifiLock.release(); } catch (Throwable ignored) {}
+        }
 
         try {
             stopForeground(true);
